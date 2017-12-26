@@ -6,6 +6,15 @@
 <moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.1.xsd">
 
     <default-property name="instance_purpose" value="dev"/>
+    <default-property name="entity_ds_db_conf" value="mysql"/>
+    <default-property name="entity_ds_schema" value=""/>
+    <default-property name="entity_ds_host" value="localhost"/>
+    <default-property name="entity_ds_port" value="3306"/>
+    <default-property name="entity_ds_database" value="moqui"/>
+    <default-property name="entity_ds_url" value="jdbc:mysql://${entity_ds_host}:${entity_ds_port}/${entity_ds_database}?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=UTF-8"/>
+    <default-property name="entity_ds_user" value="root"/>
+    <default-property name="entity_ds_password" value="root"/>
+    <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
 
     <tools empty-db-load="all"/>
 
@@ -51,6 +60,21 @@
 
     <webapp-list>
         <webapp name="webroot">
+            <root-screen host=".*"
+                         location="component://webroot/screen/webroot.xml"/>
+            <root-screen host="local.moqui"
+                         location="component://webroot/screen/webroot.xml"/>
+            <filter name="corsFilter" class="org.ebaysf.web.cors.CORSFilter">
+                <init-param name="cors.allowed.origins"
+                            value="*"/>
+                <init-param name="cors.allowed.methods" value="GET,POST,HEAD,OPTIONS,PUT,DELETE"/>
+                <init-param name="cors.allowed.headers"
+                            value="Content-Type,X-Requested-With,accept,Origin,Access-Control-Request-Method,Access-Control-Request-Headers,Authorization"/>
+                <init-param name="cors.support.credentials" value="true"/>
+                <init-param name="cors.logging.enabled" value="true"/>
+                <init-param name="cors.preflight.maxage" value="10"/>
+                <url-pattern>/*</url-pattern>
+            </filter>
             <servlet name="H2Console" class="org.h2.server.web.WebServlet" load-on-startup="1">
                 <!-- <init-param name="webAllowOthers" value=""/><init-param name="trace" value=""/> -->
                 <url-pattern>/h2/*</url-pattern>
@@ -70,8 +94,39 @@
         <screen-text-output type="html" mime-type="text/html" macro-template-location="template/screen-macro/ScreenHtmlMacros.ftl"/>
     </screen-facade>
 
+    <!-- 实体/数据库门面配置 -->
     <entity-facade query-stats="true">
-        <!-- add datasource elements here to configure databases -->
+        <!-- The entity-facade.@default-group-name=transactional, so if other entity groups do not have a data source
+         the transactional group's datasource will be used. -->
+
+        <!-- If this is not present the default JNDI server will be used:
+        <server-jndi context-provider-url="rmi://127.0.0.1:1099"
+                 initial-context-factory="com.sun.jndi.rmi.registry.RegistryContextFactory"
+                 url-pkg-prefixes="java.naming.rmi.security.manager"
+                 security-principal="" security-credentials=""/>
+         -->
+
+        <!--
+            The configurations below will use the XADataSource directly to connect, which is required for proper
+            transaction handling with multiple data sources.
+
+            To use the non-XA variety just specify the normal JDBC parameters (like jdbc-uri, etc) and leave out the
+            xa-properties element. If the xa-properties element is present the normal JDBC parameters will be ignored.
+
+            To use a DataSource from JNDI use something the jndi-jdbc element under the datasource element:
+                <jndi-jdbc jndi-name="java:/MoquiDataSource"/>
+
+            NOTE: for production usage there is one connection pool per datasource so use as few datasources as possible.
+
+            The main datasource should have a max size large enough for all servlet container threads plus a few for
+            the worker pool (see tools.@worker-pool-max). Note that Bitronix has a 30 second timeout waiting for a
+            connection from the pool, and currently connections are NOT shared between transactions (only released when
+            a tx is closed).
+
+            Good numbers for a decent sized server are 100 servlet container (Jetty) threads, 16 worker threads, plus a
+            few extra so 120 connections in the main pool.
+        -->
+        <datasource group-name="transactional"  database-conf-name="${entity_ds_db_conf}" schema-name="${entity_ds_schema}" runtime-add-fks="true" runtime-add-missing="true"></datasource>
     </entity-facade>
 
     <repository-list>
@@ -79,4 +134,15 @@
         <repository name="main" workspace="default" username="admin" password="admin">
             <init-param name="org.apache.jackrabbit.repository.uri" value="http://localhost:8081/rmi"/></repository> -->
     </repository-list>
+        <!--
+        <component-list>
+            <component-dir location="base-component"/>
+            <component-dir location="mantle"/>
+            <component-dir location="component-lib"/>
+            <component-dir location="component"/>
+        -->
+        <!-- Here are some examples of explicitly loading the example component in different ways: -->
+        <!-- <component name="example" location="component/example"/> -->
+        <!-- <component name="example" location="content://main/component/example"/> -->
+     <!--</component-list>-->
 </moqui-conf>
