@@ -88,6 +88,7 @@ td span.form-display { display: inline-block; width: 100%; }
 td .Long, td .Double, td .Float, td .Integer { text-align: center; }
 td .BigDecimal, td .currency { text-align: right; }
 
+.table-condensed .form-group { margin-bottom: 0; }
 td.form-list-sub-row-cell { padding: 0 !important; }
 .form-list-sub-rows { margin-left: 23px; padding-left: 8px; border-left: 1px dashed #8c8c8c; }
 .form-list-sub-rows>table { margin-bottom: 0; }
@@ -113,7 +114,7 @@ span.shaded-area { display: inline-block; white-space: normal; }
 
 /* Styles to get around default Bootstrap input width:100%; note margin-right on .input-group is enough for a 14px icon but nothing more! */
 .form-control { display: inline; min-width: 20px; width: auto; max-width: 100%; }
-.input-group { display: inline-block; white-space: nowrap; margin-right: 39px; }
+.input-group { display: inline-block; white-space: nowrap; margin-right: 0; margin-top: -2px; }
 .input-group .form-control { display: inline; min-width: 20px; width: auto; }
 .input-group .input-group-addon, .input-group .input-group-btn { display: inline; line-height: 34px; padding: 8px 12px; }
 
@@ -160,6 +161,8 @@ nav.form-list-nav>span.select2-container { float: left; margin: 6px 0 6px 0; min
 .table>thead>tr>th { vertical-align: top; }
 .table>tbody>tr>td { vertical-align: middle; }
 .table { margin-bottom: 8px; }
+
+.well>.list-inline { margin-bottom: 0; }
 
 /* ================ Other, Fix Styles =============== */
 

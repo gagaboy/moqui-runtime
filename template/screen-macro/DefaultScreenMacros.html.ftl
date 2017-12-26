@@ -437,8 +437,9 @@ ${sri.renderIncludeScreen(.node["@location"], .node["@share-scope"]!)}
 <#macro linkFormLink linkNode linkFormId linkText urlInstance>
     <#assign iconClass = linkNode["@icon"]!>
     <#if !iconClass?has_content && linkNode["@text"]?has_content><#assign iconClass = sri.getThemeIconClass(linkNode["@text"])!></#if>
+    <#assign badgeMessage = ec.getResource().expand(linkNode["@badge"]!, "")/>
     <#if urlInstance.disableLink>
-        <a href="#"<#if linkFormId?has_content> id="${linkFormId}"</#if> class="disabled text-muted <#if linkNode["@link-type"]! != "anchor" && linkNode["@link-type"]! != "hidden-form-link">btn btn-primary btn-sm</#if><#if .node["@style"]?has_content> ${ec.getResource().expandNoL10n(.node["@style"], "")}</#if>"><#if iconClass?has_content><i class="${iconClass}"></i></#if><#if linkNode["image"]?has_content><#visit linkNode["image"][0]><#else>${linkText}</#if></a>
+        <a href="#"<#if linkFormId?has_content> id="${linkFormId}"</#if> class="disabled text-muted <#if linkNode["@link-type"]! != "anchor" && linkNode["@link-type"]! != "hidden-form-link">btn btn-${linkNode["@btn-type"]!"primary"} btn-sm</#if><#if .node["@style"]?has_content> ${ec.getResource().expandNoL10n(.node["@style"], "")}</#if>"><#if iconClass?has_content><i class="${iconClass}"></i></#if><#if linkNode["image"]?has_content><#visit linkNode["image"][0]><#else>${linkText}</#if></a>
     <#else>
         <#assign confirmationMessage = ec.getResource().expand(linkNode["@confirmation"]!, "")/>
         <#if (linkNode["@link-type"]! == "anchor" || linkNode["@link-type"]! == "anchor-button") ||
@@ -451,12 +452,13 @@ ${sri.renderIncludeScreen(.node["@location"], .node["@share-scope"]!)}
                 <#if linkNode["@url-noparam"]! == "true"><#assign urlText = urlInstance.url/>
                     <#else><#assign urlText = urlInstance.urlWithParams/></#if>
             </#if>
-            <#rt><a href="${urlText}"<#if linkFormId?has_content> id="${linkFormId}"</#if><#if linkNode["@target-window"]?has_content> target="${linkNode["@target-window"]}"</#if><#if confirmationMessage?has_content> onclick="return confirm('${confirmationMessage?js_string}')"</#if> class="<#if linkNode["@link-type"]! != "anchor">btn btn-primary btn-sm</#if><#if linkNode["@style"]?has_content> ${ec.getResource().expandNoL10n(linkNode["@style"], "")}</#if>"<#if linkNode["@tooltip"]?has_content> data-toggle="tooltip" title="${ec.getResource().expand(linkNode["@tooltip"], "")}"</#if>><#if iconClass?has_content><i class="${iconClass}"></i> </#if>
+            <#rt><a href="${urlText}"<#if linkFormId?has_content> id="${linkFormId}"</#if><#if linkNode["@target-window"]?has_content> target="${linkNode["@target-window"]}"</#if><#if confirmationMessage?has_content> onclick="return confirm('${confirmationMessage?js_string}')"</#if> class="<#if linkNode["@link-type"]! != "anchor">btn btn-${linkNode["@btn-type"]!"primary"} btn-sm</#if><#if linkNode["@style"]?has_content> ${ec.getResource().expandNoL10n(linkNode["@style"], "")}</#if>"<#if linkNode["@tooltip"]?has_content> data-toggle="tooltip" title="${ec.getResource().expand(linkNode["@tooltip"], "")}"</#if>><#if iconClass?has_content><i class="${iconClass}"></i> </#if>
             <#t><#if linkNode["image"]?has_content><#visit linkNode["image"][0]><#else>${linkText}</#if>
+            <#t><#if badgeMessage?has_content> <span class="badge">${badgeMessage}</span></#if>
             <#t></a>
         <#else>
             <#if linkFormId?has_content>
-            <#rt><button type="submit" form="${linkFormId}" id="${linkFormId}_button" class="btn btn-primary btn-sm<#if linkNode["@style"]?has_content> ${ec.getResource().expandNoL10n(linkNode["@style"], "")}</#if>"
+            <#rt><button type="submit" form="${linkFormId}" id="${linkFormId}_button" class="btn btn-${linkNode["@btn-type"]!"primary"} btn-sm<#if linkNode["@style"]?has_content> ${ec.getResource().expandNoL10n(linkNode["@style"], "")}</#if>"
                     <#t><#if confirmationMessage?has_content> onclick="return confirm('${confirmationMessage?js_string}')"</#if>
                     <#t><#if linkNode["@tooltip"]?has_content> data-toggle="tooltip" title="${ec.getResource().expand(linkNode["@tooltip"], "")}"</#if>>
                 <#t><#if iconClass?has_content><i class="${iconClass}"></i> </#if>
@@ -465,6 +467,7 @@ ${sri.renderIncludeScreen(.node["@location"], .node["@share-scope"]!)}
                 <#else>
                     <#t>${linkText}
                 </#if>
+            <#t><#if badgeMessage?has_content> <span class="badge">${badgeMessage}</span></#if>
             <#t></button>
             </#if>
         </#if>
@@ -493,10 +496,11 @@ ${sri.renderIncludeScreen(.node["@location"], .node["@share-scope"]!)}
                     <#else>
                         <#assign iconClass = linkNode["@icon"]!>
                         <#if !iconClass?has_content && linkNode["@text"]?has_content><#assign iconClass = sri.getThemeIconClass(linkNode["@text"])!></#if>
-                        <#rt><button type="submit" class="<#if linkNode["@link-type"]! == "hidden-form-link">button-plain<#else>btn btn-primary btn-sm</#if><#if .node["@style"]?has_content> ${ec.getResource().expandNoL10n(.node["@style"], "")}</#if>"
+                        <#assign badgeMessage = ec.getResource().expand(linkNode["@badge"]!, "")/>
+                        <#rt><button type="submit" class="<#if linkNode["@link-type"]! == "hidden-form-link">button-plain<#else>btn btn-${linkNode["@btn-type"]!"primary"} btn-sm</#if><#if .node["@style"]?has_content> ${ec.getResource().expandNoL10n(.node["@style"], "")}</#if>"
                             <#t><#if confirmationMessage?has_content> onclick="return confirm('${confirmationMessage?js_string}')"</#if>
                             <#t><#if linkNode["@tooltip"]?has_content> data-toggle="tooltip" title="${ec.getResource().expand(linkNode["@tooltip"], "")}"</#if>>
-                            <#t><#if iconClass?has_content><i class="${iconClass}"></i> </#if>${linkText}</button>
+                            <#t><#if iconClass?has_content><i class="${iconClass}"></i> </#if>${linkText}<#if badgeMessage?has_content> <span class="badge">${badgeMessage}</span></#if></button>
                     </#if>
                 </#if>
             </form>
@@ -1993,6 +1997,7 @@ a => A, d => D, y => Y
         </#list>
     </#if>
     </select>
+    <#if ec.getResource().expand(.node["@show-not"]!, "") == "true"><span><input type="checkbox" class="form-control" name="${name}_not" value="Y"<#if ec.getWeb().parameters.get(name + "_not")! == "Y"> checked="checked"</#if><#if ownerForm?has_content> form="${ownerForm}"</#if>>&nbsp;${ec.getL10n().localize("Not")}</span></#if>
     <#-- <span>[${currentValue}]; <#list currentValueList as curValue>[${curValue!''}], </#list></span> -->
     <#if allowMultiple><input type="hidden" id="${id}_op" name="${name}_op" value="in"></#if>
     <#if isDynamicOptions>
@@ -2276,6 +2281,7 @@ a => A, d => D, y => Y
 
 <#macro widgetTextValue widgetNode alwaysGet=false>
     <#assign widgetType = widgetNode?node_name>
+    <#assign curFieldName><@fieldName widgetNode/></#assign>
     <#assign noDisplay = ["display", "display-entity", "hidden", "ignored", "password", "reset", "submit", "text-area", "link", "label"]>
     <#t><#if noDisplay?seq_contains(widgetType)><#return></#if>
     <#t><#if widgetType == "drop-down">
@@ -2311,6 +2317,7 @@ a => A, d => D, y => Y
                 <#t><#if currentDescription?has_content>${currentDescription}<#elseif currentValue?has_content>${currentValue}</#if>
             </#if><#t>
         </#if><#t>
+        <#t><#if ec.getWeb().parameters.get(curFieldName + "_not")! == "Y"> (${ec.getL10n().localize("Not")})</#if>
     <#elseif widgetType == "check" || widgetType == "radio">
         <#assign currentValue = sri.getFieldValueString(widgetNode)/>
         <#if !currentValue?has_content><#return></#if>
@@ -2327,7 +2334,6 @@ a => A, d => D, y => Y
             <#t><#if fieldValue?has_content>${fieldValue}</#if>
         </#if><#t>
     <#elseif widgetType == "date-period">
-        <#assign curFieldName><@fieldName widgetNode/></#assign>
         <#assign fvPeriod = ec.getContext().get(curFieldName + "_period")!?lower_case>
         <#if fvPeriod?has_content>
             <#assign fvOffset = ec.getContext().get(curFieldName + "_poffset")!"0">
@@ -2342,13 +2348,11 @@ a => A, d => D, y => Y
         <#t><#if fieldValue?has_content>${fieldValue?html}</#if>
     <#elseif widgetType == "date-find">
         <#t><#if widgetNode["@type"]! == "time"><#assign defaultFormat="HH:mm"><#elseif widgetNode["@type"]! == "date"><#assign defaultFormat="yyyy-MM-dd"><#else><#assign defaultFormat="yyyy-MM-dd HH:mm"></#if>
-        <#assign curFieldName><@fieldName widgetNode/></#assign>
         <#assign fieldValueFrom = ec.getL10n().format(ec.getContext().get(curFieldName + "_from")!?default(widgetNode["@default-value-from"]!""), defaultFormat)>
         <#assign fieldValueThru = ec.getL10n().format(ec.getContext().get(curFieldName + "_thru")!?default(widgetNode["@default-value-thru"]!""), defaultFormat)>
         <#t><#if fieldValueFrom?has_content>${ec.getL10n().localize("From")} ${fieldValueFrom?html}</#if>
         <#t><#if fieldValueThru?has_content>${ec.getL10n().localize("Thru")} ${fieldValueThru?html}</#if>
     <#elseif widgetType == "range-find">
-        <#assign curFieldName><@fieldName widgetNode/></#assign>
         <#assign fieldValueFrom = ec.getContext().get(curFieldName + "_from")!?default(widgetNode["@default-value-from"]!"")>
         <#assign fieldValueThru = ec.getContext().get(curFieldName + "_thru")!?default(widgetNode["@default-value-thru"]!"")>
         <#t><#if fieldValueFrom?has_content>${ec.getL10n().localize("From")} ${fieldValueFrom?html}</#if>

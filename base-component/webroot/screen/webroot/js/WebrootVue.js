@@ -151,7 +151,17 @@ moqui.notifyMessages = function(messages, errors, validationErrors) {
     if (messages) {
         if (moqui.isArray(messages)) {
             for (var mi=0; mi < messages.length; mi++) {
-                $.notify({message:messages[mi]}, moqui.notifyOptsInfo); moqui.webrootVue.addNotify(messages[mi], 'info'); notified = true; }
+                var messageItem = messages[mi];
+                if (moqui.isPlainObject(messageItem)) {
+                    var msgType = messageItem.type; if (!msgType || !msgType.length) msgType = 'info';
+                    $.notify({message:messageItem.message}, $.extend({}, moqui.notifyOptsInfo, { type:msgType }));
+                    moqui.webrootVue.addNotify(messageItem.message, msgType);
+                } else {
+                    $.notify({message:messageItem}, moqui.notifyOptsInfo);
+                    moqui.webrootVue.addNotify(messageItem, 'info');
+                }
+                notified = true;
+            }
         } else { $.notify({message:messages}, moqui.notifyOptsInfo); moqui.webrootVue.addNotify(messages, 'info'); notified = true; }
     }
     if (errors) {
@@ -184,7 +194,7 @@ moqui.handleAjaxError = function(jqXHR, textStatus, errorThrown) {
     console.warn('ajax ' + textStatus + ' (' + jqXHR.status + '), message ' + errorThrown /*+ '; response: ' + resp*/);
     // console.error('respObj: ' + JSON.stringify(respObj));
     var notified = false;
-    if (respObj && moqui.isPlainObject(respObj)) { notified = moqui.notifyMessages(respObj.messages, respObj.errors, respObj.validationErrors); }
+    if (respObj && moqui.isPlainObject(respObj)) { notified = moqui.notifyMessages(respObj.messageInfos, respObj.errors, respObj.validationErrors); }
     else if (resp && moqui.isString(resp) && resp.length) { notified = moqui.notifyMessages(resp); }
 
     // reload on 401 (Unauthorized) so server can remember current URL and redirect to login screen
@@ -414,7 +424,7 @@ Vue.component('tree-item', {
     template:
     '<li :id="model.id">' +
         '<i v-if="isFolder" @click="toggle" class="glyphicon" :class="{\'glyphicon-chevron-right\':!open, \'glyphicon-chevron-down\':open}"></i>' +
-        '<i v-else class="glyphicon" class="glyphicon glyphicon-unchecked"></i>' +
+        '<i v-else class="glyphicon glyphicon-unchecked"></i>' +
         ' <span @click="setSelected">' +
             '<m-link v-if="model.a_attr" :href="model.a_attr.urlText" :load-id="model.a_attr.loadId" :class="{\'text-success\':selected}">{{model.text}}</m-link>' +
             '<span v-if="!model.a_attr" :class="{\'text-success\':selected}">{{model.text}}</span>' +
@@ -523,7 +533,7 @@ Vue.component('m-form', {
             var notified = false;
             // console.info('m-form response ' + JSON.stringify(resp));
             if (resp && moqui.isPlainObject(resp)) {
-                notified = moqui.notifyMessages(resp.messages, resp.errors);
+                notified = moqui.notifyMessages(resp.messageInfos, resp.errors);
                 if (resp.screenUrl && resp.screenUrl.length > 0) { this.$root.setUrl(resp.screenUrl); }
                 else if (resp.redirectUrl && resp.redirectUrl.length > 0) { window.location.href = resp.redirectUrl; }
             } else { console.warn('m-form no response or non-JSON response: ' + JSON.stringify(resp)) }
@@ -616,7 +626,7 @@ Vue.component('form-link', {
                 var bodyParameters = null;
                 for (var pi=0; pi<parmList.length; pi++) {
                     var parm = parmList[pi]; var key = parm.name; var value = parm.value;
-                    if (value.trim().length === 0 || key === "moquiSessionToken" || key === "moquiFormName" || key.indexOf('%5B%5D') > 0) continue;
+                    if (value.trim().length === 0 || key === "moquiSessionToken" || key === "moquiFormName" || key.indexOf('[]') > 0) continue;
                     if (key.indexOf("_op") > 0 || key.indexOf("_not") > 0 || key.indexOf("_ic") > 0) {
                         extraList.push(parm);
                     } else {
@@ -858,18 +868,19 @@ moqui.datePeriods = [{id:'day',text:'Day'},{id:'7d',text:'7 Days'},{id:'30d',tex
     {id:'month',text:'Month'},{id:'months',text:'Months'},{id:'quarter',text:'Quarter'},{id:'year',text:'Year'},{id:'7r',text:'+/-7d'},{id:'30r',text:'+/-30d'}];
 moqui.emptyOpt = {id:'',text:'\u00a0'};
 Vue.component('date-period', {
-    props: { name:{type:String,required:true}, id:String, allowEmpty:Boolean, offset:String, period:String, date:String, form:String },
-    template: '<div class="date-period" :id="id"><select ref="poffset" :name="name+\'_poffset\'" :form="form"></select> ' +
-        '<select ref="period" :name="name+\'_period\'" :form="form"></select> ' +
-        '<date-time :name="name+\'_pdate\'" :id="id+\'_pdate\'" :form="form" type="date" :value="date"/></div>',
-    mounted: function() {
-        var pofsEl = $(this.$refs.poffset); var perEl = $(this.$refs.period);
-        var offsets = moqui.dateOffsets.slice(); var periods = moqui.datePeriods.slice();
-        if (this.allowEmpty) { offsets.unshift(moqui.emptyOpt); periods.unshift(moqui.emptyOpt); }
-        pofsEl.select2({ data:offsets }); perEl.select2({ data:periods });
-        var offset = this.offset; if (offset && offset.length) { pofsEl.val(offset).trigger('change'); }
-        var period = this.period; if (period && period.length) { perEl.val(period).trigger('change'); }
-    }
+    props: { name:{type:String,required:true}, id:String, allowEmpty:Boolean, offset:String, period:String, date:String, fromDate:String, thruDate:String, form:String },
+    data: function() { return { fromThruMode:false, dateOffsets:moqui.dateOffsets.slice(), datePeriods:moqui.datePeriods.slice() } },
+    template:
+    '<div v-if="fromThruMode"><date-time :name="name+\'_from\'" :id="id+\'_from\'" :form="form" type="date" :value="fromDate"/> - ' +
+        '<date-time :name="name+\'_thru\'" :id="id+\'_thru\'" :form="form" type="date" :value="thruDate"/>' +
+        ' <i @click="toggleMode" class="glyphicon glyphicon-resize-vertical"></i></div>' +
+    '<div v-else class="date-period" :id="id">' +
+        '<drop-down :name="name+\'_poffset\'" :options="dateOffsets" :value="offset" :allow-empty="allowEmpty" :form="form"></drop-down> ' +
+        '<drop-down :name="name+\'_period\'" :options="datePeriods" :value="period" :allow-empty="allowEmpty" :form="form"></drop-down> ' +
+        '<date-time :name="name+\'_pdate\'" :id="id+\'_pdate\'" :form="form" type="date" :value="date"/>' +
+        ' <i @click="toggleMode" class="glyphicon glyphicon-resize-horizontal"></i></div>',
+    methods: { toggleMode: function() { this.fromThruMode = !this.fromThruMode; } },
+    beforeMount: function() { if (((this.fromDate && this.fromDate.length) || (this.thruDate && this.thruDate.length))) this.fromThruMode = true; }
 });
 Vue.component('drop-down', {
     props: { options:Array, value:[Array,String], combo:Boolean, allowEmpty:Boolean, multiple:String, optionsUrl:String,
@@ -936,7 +947,10 @@ Vue.component('drop-down', {
             jqEl.css("min-width", "240px"); // this gets ignored, not sure why select2 isn't passing it through
             jqEl.addClass("noResetSelect2"); // so doesn't get reset on container dialog load
         }
-        if (this.options && this.options.length > 0) { opts.data = this.options; }
+        if (this.options && this.options.length > 0) {
+            if (this.allowEmpty && this.multiple !== "multiple") opts.data = [{id:'',text:'\u00a0'}].concat(this.options);
+            else opts.data = this.options;
+        }
         if (this.serverSearch) {
             if (!this.optionsUrl) console.error("drop-down in form " + this.form + " has no options-url but has server-search=true");
             opts.ajax = { url:this.optionsUrl, type:"POST", dataType:"json", delay:this.serverDelay, cache:true,
@@ -971,12 +985,12 @@ Vue.component('drop-down', {
         options: function(options) { this.curData = options; },
         curData: function(options) {
             var jqEl = $(this.$el); var vm = this;
-            var bWasFocused = jqEl.next().hasClass('select2-container--focus');
+            var wasFocused = jqEl.next().hasClass('select2-container--focus');
             // save the lastVal if there is one to remember what was selected even if new options don't have it, just in case options change again
             var saveVal = jqEl.select2().val(); if (saveVal && saveVal.length > 1) this.lastVal = saveVal;
             jqEl.select2('destroy'); jqEl.empty();
             this.s2Opts.data = options; jqEl.select2(this.s2Opts);
-            if( bWasFocused ) jqEl.focus();
+            if (wasFocused) jqEl.focus();
             setTimeout(function() {
                 var setVal = vm.lastVal; if (!setVal || setVal.length < 2) { setVal = vm.value; }
                 if (setVal) {
@@ -1207,8 +1221,8 @@ moqui.webrootVue = new Vue({
             var nowDate = new Date();
             var nh = nowDate.getHours(); if (nh < 10) nh = '0' + nh;
             var nm = nowDate.getMinutes(); if (nm < 10) nm = '0' + nm;
-            var ns = nowDate.getSeconds(); if (ns < 10) ns = '0' + ns;
-            histList.unshift({message:message, type:type, time:(nh + ':' + nm + ':' + ns)});
+            // var ns = nowDate.getSeconds(); if (ns < 10) ns = '0' + ns;
+            histList.unshift({message:message, type:type, time:(nh + ':' + nm)}); //  + ':' + ns
             while (histList.length > 25) { histList.pop(); }
             this.notifyHistoryList = histList;
         },
@@ -1259,21 +1273,25 @@ moqui.webrootVue = new Vue({
             var newTitle = (par ? par.title + ' - ' : '') + cur.title;
             var curUrl = cur.pathWithParams; var questIdx = curUrl.indexOf("?");
             if (questIdx > 0) {
+                var excludeKeys = ["pageIndex", "orderBySelect", "orderByField", "moquiSessionToken"];
                 var parmList = curUrl.substring(questIdx+1).split("&");
                 curUrl = curUrl.substring(0, questIdx);
                 var dpCount = 0;
                 var titleParms = "";
                 for (var pi=0; pi<parmList.length; pi++) {
-                    var parm = parmList[pi]; if (parm.indexOf("pageIndex=") === 0) continue;
+                    var parm = parmList[pi];
                     if (curUrl.indexOf("?") === -1) { curUrl += "?"; } else { curUrl += "&"; }
                     curUrl += parm;
-                    if (dpCount > 1) continue; // add up to 2 parms to the title
+                    // from here down only add to title parms
+                    if (dpCount > 3) continue; // add up to 4 parms to the title
                     var eqIdx = parm.indexOf("=");
                     if (eqIdx > 0) {
                         var key = parm.substring(0, eqIdx);
-                        if (key.indexOf("_op") > 0 || key.indexOf("_not") > 0 || key.indexOf("_ic") > 0 || key === "moquiSessionToken") continue;
+                        var value = parm.substring(eqIdx + 1);
+                        if (key.indexOf("_op") > 0 || key.indexOf("_not") > 0 || key.indexOf("_ic") > 0 || excludeKeys.indexOf(key) > 0 || key === value) continue;
                         if (titleParms.length > 0) titleParms += ", ";
-                        titleParms += decodeURIComponent(parm.substring(eqIdx + 1));
+                        titleParms += decodeURIComponent(value);
+                        dpCount++;
                     }
                 }
                 if (titleParms.length > 0) {
