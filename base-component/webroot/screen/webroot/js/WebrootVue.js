@@ -162,13 +162,24 @@ moqui.notifyMessages = function(messages, errors, validationErrors) {
                 }
                 notified = true;
             }
-        } else { $.notify({message:messages}, moqui.notifyOptsInfo); moqui.webrootVue.addNotify(messages, 'info'); notified = true; }
+        } else {
+            $.notify({message:messages}, moqui.notifyOptsInfo);
+            moqui.webrootVue.addNotify(messages, 'info');
+            notified = true;
+        }
     }
     if (errors) {
         if (moqui.isArray(errors)) {
             for (var ei=0; ei < errors.length; ei++) {
-                $.notify({message:errors[ei]}, moqui.notifyOptsError); moqui.webrootVue.addNotify(errors[ei], 'danger'); notified = true; }
-        } else { $.notify({message:errors}, moqui.notifyOptsError); moqui.webrootVue.addNotify(errors, 'danger'); notified = true; }
+                $.notify({message:errors[ei]}, moqui.notifyOptsError);
+                moqui.webrootVue.addNotify(errors[ei], 'danger');
+                notified = true;
+            }
+        } else {
+            $.notify({message:errors}, moqui.notifyOptsError);
+            moqui.webrootVue.addNotify(errors, 'danger');
+            notified = true;
+        }
     }
     if (validationErrors) {
         if (moqui.isArray(validationErrors)) {
@@ -234,7 +245,8 @@ moqui.loadComponent = function(urlInfo, callback, divId) {
     }
 
     // prep url
-    var url = path; var isJsPath = (path.slice(-3) === '.js');
+    var url = path;
+    var isJsPath = (path.slice(-3) === '.js');
     if (!isJsPath) url += '.vuet';
     if (extraPath && extraPath.length > 0) url += ('/' + extraPath);
     if (search && search.length > 0) url += ('?' + search);
@@ -283,10 +295,11 @@ moqui.EmptyComponent = Vue.extend({ template: '<div id="current-page-root"><div 
 
 /* ========== inline components ========== */
 Vue.component('m-link', {
-    props: { href:{type:String,required:true}, loadId:String },
+    props: { href:{type:String,required:true}, loadId:String, confirmation:String },
     template: '<a :href="linkHref" @click.prevent="go"><slot></slot></a>',
     methods: { go: function(event) {
         if (event.button !== 0) { return; }
+        if (this.confirmation && this.confirmation.length) { if (!window.confirm(this.confirmation)) { return; } }
         if (this.loadId && this.loadId.length > 0) { this.$root.loadContainer(this.loadId, this.href); }
         else { if (event.ctrlKey || event.metaKey) { window.open(this.linkHref, "_blank"); } else { this.$root.setUrl(this.linkHref); } }
     }},
@@ -1356,6 +1369,18 @@ moqui.webrootVue = new Vue({
 
         $("#screen-document-dialog").on("hidden.bs.modal", function () { var jqEl = $("#screen-document-dialog-body");
                 jqEl.empty(); jqEl.append('<div class="spinner"><div>Loading…</div></div>'); });
+
+        // request Notification permission on load if not already granted or denied
+        if (window.Notification && Notification.permission !== "granted" && Notification.permission !== "denied") {
+            Notification.requestPermission(function (status) {
+                if (status === "granted") {
+                    moqui.notifyMessages("Browser notifications enabled, if you don't want them use browser notification settings to block");
+                } else if (status === "denied") {
+                    moqui.notifyMessages("Browser notifications disabled, if you want them use browser notification settings to allow");
+                }
+            });
+        }
     }
+
 });
 window.addEventListener('popstate', function() { moqui.webrootVue.setUrl(window.location.pathname + window.location.search); });
