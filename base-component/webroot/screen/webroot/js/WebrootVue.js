@@ -339,8 +339,12 @@ Vue.component('container-box', {
     props: { type:{type:String,'default':'default'}, title:String, initialOpen:{type:Boolean,'default':true} },
     data: function() { return { isBodyOpen:this.initialOpen }},
     template:
-    '<div :class="\'panel panel-\' + type"><div class="panel-heading" @click.self="toggleBody">' +
-            '<h5 v-if="title && title.length" @click="toggleBody">{{title}}</h5><slot name="header"></slot>' +
+    '<div :class="\'panel panel-\' + type">' +
+        '<div class="panel-heading" @click.self="toggleBody">' +
+            '<h5 v-if="title && title.length" @click="toggleBody">' +
+                '<i :class="[isBodyOpen?\'glyphicon glyphicon-chevron-down\':\'glyphicon glyphicon-chevron-right\']"/> ' +
+                '{{title}}</h5>' +
+            '<slot name="header"></slot>' +
             '<div class="panel-toolbar"><slot name="toolbar"></slot></div></div>' +
         '<div class="panel-collapse collapse" :class="{in:isBodyOpen}"><slot></slot></div>' +
     '</div>',
@@ -950,9 +954,9 @@ Vue.component('drop-down', {
     props: { options:Array, value:[Array,String], combo:Boolean, allowEmpty:Boolean, multiple:String, optionsUrl:String,
         serverSearch:{type:Boolean,'default':false}, serverDelay:{type:Number,'default':300}, serverMinLength:{type:Number,'default':1},
         optionsParameters:Object, labelField:String, valueField:String, dependsOn:Object, dependsOptional:Boolean,
-        optionsLoadInit:Boolean, form:String },
+        optionsLoadInit:Boolean, form:String, tooltip:String },
     data: function() { return { curData:null, s2Opts:null, lastVal:null } },
-    template: '<select :form="form"><slot></slot></select>',
+    template: '<select :form="form" :data-title="tooltip"><slot></slot></select>',
     methods: {
         processOptionList: function(list, page, term) {
             var newData = [];
@@ -1027,6 +1031,8 @@ Vue.component('drop-down', {
         }
         this.s2Opts = opts;
         jqEl.select2(opts).on('change', function () { vm.$emit('input', this.value); });
+        if (this.tooltip && this.tooltip.length) jqEl.next().tooltip({ title: function() { return $(this).prev().attr("data-title"); }, placement: "auto" });
+
         // needed? was a hack for something, but interferes with closeOnSelect:false for multiple: .on('select2:select', function () { jqEl.select2('open').select2('close'); });
         // needed? caused some issues: .on('change', function () { vm.$emit('input', vm.curVal); })
         var initValue = this.value;
@@ -1055,6 +1061,7 @@ Vue.component('drop-down', {
             jqEl.select2('destroy'); jqEl.empty();
             this.s2Opts.data = options;
             jqEl.select2(this.s2Opts).on('change', function () { vm.$emit('input', this.value); });
+            if (this.tooltip && this.tooltip.length) jqEl.next().tooltip({ title: function() { return $(this).prev().attr("data-title"); }, placement: "auto" });
             if (wasFocused) jqEl.focus();
             setTimeout(function() {
                 var setVal = vm.lastVal; if (!setVal || setVal.length < 2) { setVal = vm.value; }
