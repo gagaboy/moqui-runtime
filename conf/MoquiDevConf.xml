@@ -16,6 +16,8 @@
     <default-property name="entity_ds_password" value="root"/>
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
 
+    <default-property name="webapp_allow_origins" value="*"/>
+
     <tools empty-db-load="all"/>
 
     <cache-list warm-on-start="false">
