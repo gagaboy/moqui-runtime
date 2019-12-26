@@ -270,6 +270,11 @@ moqui.loadComponent = function(urlInfo, callback, divId) {
 
     console.info("loadComponent " + url + (divId ? " id " + divId : ''));
     var ajaxSettings = { type:"GET", url:url, error:moqui.handleLoadError, success: function(resp, status, jqXHR) {
+        if (jqXHR.status === 205) {
+            var redirectTo = jqXHR.getResponseHeader("X-Redirect-To")
+            moqui.webrootVue.setUrl(redirectTo);
+            return;
+        }
         // console.info(resp);
         if (!resp) { callback(moqui.NotFound); }
         var isServerStatic = (jqXHR.getResponseHeader("Cache-Control").indexOf("max-age") >= 0);
@@ -298,7 +303,7 @@ moqui.loadComponent = function(urlInfo, callback, divId) {
                 callback(compObj);
             }
         } else if (moqui.isPlainObject(resp)) {
-            if (resp.screenUrl && resp.screenUrl.length > 0) { this.$root.setUrl(resp.screenUrl); }
+            if (resp.screenUrl && resp.screenUrl.length > 0) { moqui.webrootVue.setUrl(resp.screenUrl); }
             else if (resp.redirectUrl && resp.redirectUrl.length > 0) { window.location.replace(resp.redirectUrl); }
         } else { callback(moqui.NotFound); }
     }};
@@ -308,7 +313,7 @@ moqui.loadComponent = function(urlInfo, callback, divId) {
 
 /* ========== placeholder components ========== */
 moqui.NotFound = Vue.extend({ template: '<div id="current-page-root"><h4>Screen not found at {{this.$root.currentPath}}</h4></div>' });
-moqui.EmptyComponent = Vue.extend({ template: '<div id="current-page-root"><div class="spinner"><div>Loading…</div></div></div>' });
+moqui.EmptyComponent = Vue.extend({ template: '<div id="current-page-root"><div class="spinner"><div>&nbsp;</div></div></div>' });
 
 /* ========== inline components ========== */
 Vue.component('m-link', {
@@ -1331,6 +1336,11 @@ moqui.webrootVue = new Vue({
         loadContainer: function(contId, url) { var contComp = this.activeContainers[contId];
             if (contComp) { contComp.load(url); } else { console.error("Container with ID " + contId + " not found, not loading url " + url); }},
         addNavPlugin: function(url) { var vm = this; moqui.loadComponent(this.appRootPath + url, function(comp) { vm.navPlugins.push(comp); }) },
+        addNavPluginsWait: function(urlList, urlIndex) { if (urlList && urlList.length > urlIndex) {
+            this.addNavPlugin(urlList[urlIndex]);
+            var vm = this;
+            if (urlList.length > (urlIndex + 1)) { setTimeout(function(){ vm.addNavPluginsWait(urlList, urlIndex + 1); }, 500); }
+        } },
         addNotify: function(message, type) {
             var histList = this.notifyHistoryList.slice(0);
             var nowDate = new Date();
@@ -1451,7 +1461,15 @@ moqui.webrootVue = new Vue({
         },
         currentLinkUrl: function() { var srch = this.currentSearch; return this.currentLinkPath + (srch.length > 0 ? '?' + srch : ''); },
         basePathSize: function() { return this.basePath.split('/').length - this.appRootPath.split('/').length; },
-        ScreenTitle: function() { return this.navMenuList.length > 0 ? this.navMenuList[this.navMenuList.length - 1].title : ""; }
+        ScreenTitle: function() { return this.navMenuList.length > 0 ? this.navMenuList[this.navMenuList.length - 1].title : ""; },
+        documentMenuList: function() {
+            var docList = [];
+            for (var i = 0; i < this.navMenuList.length; i++) {
+                var screenDocList = this.navMenuList[i].screenDocList;
+                if (screenDocList && screenDocList.length) { screenDocList.forEach(function(el) { docList.push(el);}); }
+            }
+            return docList;
+        }
     },
     created: function() {
         this.moquiSessionToken = $("#confMoquiSessionToken").val();
@@ -1459,8 +1477,11 @@ moqui.webrootVue = new Vue({
         this.basePath = $("#confBasePath").val(); this.linkBasePath = $("#confLinkBasePath").val();
         this.userId = $("#confUserId").val();
         this.locale = $("#confLocale").val(); if (moqui.localeMap[this.locale]) this.locale = moqui.localeMap[this.locale];
-        var vm = this; $('.confNavPluginUrl').each(function(idx, el) { vm.addNavPlugin($(el).val()); });
         this.notificationClient = new moqui.NotificationClient((location.protocol === 'https:' ? 'wss://' : 'ws://') + this.appHost + this.appRootPath + "/notws");
+
+        var navPluginUrlList = [];
+        $('.confNavPluginUrl').each(function(idx, el) { navPluginUrlList.push($(el).val()); });
+        this.addNavPluginsWait(navPluginUrlList, 0);
     },
     mounted: function() {
         var jqEl = $(this.$el);

@@ -15,10 +15,19 @@
     <default-property name="entity_ds_user" value="root"/>
     <default-property name="entity_ds_password" value="root"/>
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
-
     <default-property name="webapp_allow_origins" value="*"/>
+    <default-property name="entity_empty_db_load" value="all"/>
 
-    <tools empty-db-load="all"/>
+    <!-- minimal overrides for testing on local mysql8:
+    <default-property name="entity_ds_db_conf" value="mysql8"/>
+    <default-property name="entity_ds_user" value="root"/>
+    <default-property name="entity_ds_password" value="moquiroot"/>
+    -->
+    <!-- minimal overrides for testing on local postgres:
+    <default-property name="entity_ds_db_conf" value="postgres"/>
+    <default-property name="entity_ds_user" value="moqui"/>
+    <default-property name="entity_ds_password" value="moqui"/>
+    -->
 
     <cache-list warm-on-start="false">
         <!-- Development Mode - expires artifact cache entries; don't use these for production, load testing, etc -->
