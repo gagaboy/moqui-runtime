@@ -13,10 +13,13 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <#-- NOTE: no empty lines before the first #macro otherwise FTL outputs empty lines -->
 <#include "DefaultScreenMacros.any.ftl"/>
+<#-- NOTE: no empty lines between the #include and the first #macro otherwise FTL outputs empty lines-->
 <#macro @element><p>=== Doing nothing for element ${.node?node_name}, not yet implemented. ===</p></#macro>
 <#macro screen><#recurse></#macro>
 <#macro widgets><#t>
-    <#if sri.doBoundaryComments()><!-- BEGIN screen[@location=${sri.getActiveScreenDef().location}].widgets --></#if>
+    <#if sri.doBoundaryComments()>
+    <!-- BEGIN screen[@location=${sri.getActiveScreenDef().location}].widgets -->
+    </#if>
     <#recurse>
     <#if sri.doBoundaryComments()><!-- END   screen[@location=${sri.getActiveScreenDef().location}].widgets --></#if>
 </#macro>
@@ -2219,6 +2222,7 @@ a => A, d => D, y => Y
         <script src="https://cdn.ckeditor.com/4.14.1/standard-all/ckeditor.js" type="text/javascript"></script>
         <script>
         CKEDITOR.dtd.$removeEmpty['i'] = false;
+        CKEDITOR.config.autoParagraph = false;
         CKEDITOR.replace('${textAreaId}', { customConfig:'',<#if editorThemeCssList?has_content>contentsCss:[<#list editorThemeCssList as themeCss>'${themeCss}'<#sep>,</#list>],</#if>
             allowedContent:true, linkJavaScriptLinksAllowed:true, fillEmptyBlocks:false,
             extraAllowedContent:'p(*)[*]{*};div(*)[*]{*};li(*)[*]{*};ul(*)[*]{*};i(*)[*]{*};span(*)[*]{*}',
