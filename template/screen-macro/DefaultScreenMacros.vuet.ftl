@@ -67,6 +67,15 @@ along with this software (see the LICENSE.md file). If not, see
 </#macro>
 <#macro "section-include">
     <#if sri.doBoundaryComments()><!-- BEGIN section-include[@name=${.node["@name"]}] --></#if>
+    <#assign sectionNode = sri.getSectionIncludedNode(.node)>
+    <#if sectionNode["@paginate"]! == "true">
+        <#assign listName = sectionNode["@list"]>
+        <#assign listObj = context.get(listName)>
+        <#assign pagParms = Static["org.moqui.util.CollectionUtilities"].paginateParameters(listObj?size, listName, context)>
+        <form-paginate :paginate="{ count:${context[listName + "Count"]?c}, pageIndex:${context[listName + "PageIndex"]?c},<#rt>
+            <#t> pageSize:${context[listName + "PageSize"]?c}, pageMaxIndex:${context[listName + "PageMaxIndex"]?c},
+            <#lt> pageRangeLow:${context[listName + "PageRangeLow"]?c}, pageRangeHigh:${context[listName + "PageRangeHigh"]?c} }"></form-paginate>
+    </#if>
 ${sri.renderSectionInclude(.node)}
     <#if sri.doBoundaryComments()><!-- END   section-include[@name=${.node["@name"]}] --></#if>
 </#macro>
@@ -213,6 +222,8 @@ ${sri.renderIncludeScreen(.node["@location"], .node["@share-scope"]!)}
         <#if linkText?has_content || linkNode["image"]?has_content || linkNode["@icon"]?has_content>
             <#if linkNode["@encode"]! != "false"><#assign linkText = linkText?html></#if>
             <#assign urlInstance = sri.makeUrlByType(linkNode["@url"], linkNode["@url-type"]!"transition", linkNode, linkNode["@expand-transition-url"]!"true")>
+            <#if linkNode["@pass-through-parameters"]! == "true">
+                <#assign urlInstance = urlInstance.addPassThroughParameters(sri.getScreenUrlInstance())></#if>
             <#assign linkDivId><@nodeId .node/></#assign>
             <@linkFormForm linkNode linkDivId linkText urlInstance/>
             <@linkFormLink linkNode linkDivId linkText urlInstance/>
@@ -404,8 +415,7 @@ ${sri.renderIncludeScreen(.node["@location"], .node["@share-scope"]!)}
         <#if lastUpdatedString?has_content><input type="hidden" name="lastUpdatedStamp" value="${lastUpdatedString}"></#if>
     </#if>
     <#if formSingleNode["@pass-through-parameters"]! == "true">
-        <#assign currentFindUrl = sri.getScreenUrlInstance().cloneUrlInstance().removeParameter("moquiFormName").removeParameter("moquiSessionToken").removeParameter("lastStandalone").removeParameter("formListFindId")>
-        <#assign currentFindUrlParms = currentFindUrl.getParameterMap()>
+        <#assign currentFindUrlParms = sri.getScreenUrlInstance().getPassThroughParameterMap()>
         <#list currentFindUrlParms.keySet() as parmName><#if !formInstance.getFieldNode(parmName)??>
             <input type="hidden" name="${parmName}" value="${currentFindUrlParms.get(parmName)!?html}">
         </#if></#list>

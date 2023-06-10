@@ -106,34 +106,48 @@ moqui.handleAjaxError = function(jqXHR, textStatus, errorThrown, responseText) {
     } else {
         if (respObj && moqui.isPlainObject(respObj)) {
             notified = moqui.notifyMessages(respObj.messageInfos, respObj.errors, respObj.validationErrors);
-            // console.log("got here notified ", notified);
         } else if (resp && moqui.isString(resp) && resp.length) {
             notified = moqui.notifyMessages(resp);
         }
     }
 
-    // reload on 401 (Unauthorized) so server can remember current URL and redirect to login screen
+    // reload on 401 (Unauthorized) so server can remember current URL and redirect to login screen, or show re-login dialog to maintain the client app context
     if (jqXHR.status === 401) {
-        if (moqui.webrootVue) { window.location.href = moqui.webrootVue.currentLinkUrl; } else { window.location.reload(true); }
+        if (moqui.webrootVue && moqui.webrootVue.reLoginCheckShow) {
+            // window.location.href = moqui.webrootVue.currentLinkUrl;
+            // instead of reloading the web page, show the Re-Login dialog
+            moqui.webrootVue.reLoginCheckShow();
+        } else {
+            window.location.reload(true);
+        }
     } else if (jqXHR.status === 0) {
         if (errorThrown.indexOf('abort') < 0) {
             var msg = 'Could not connect to server';
             moqui.webrootVue.$q.notify($.extend({}, moqui.notifyOptsError, { message:msg }));
             moqui.webrootVue.addNotify(msg, 'negative');
         }
-    } else if (!notified) {
-        console.log("got here 2 notified ", notified);
-        var errMsg = 'Error: ' + errorThrown + ' (' + textStatus + ')';
-        moqui.webrootVue.$q.notify($.extend({}, moqui.notifyOptsError, { message:errMsg }));
-        moqui.webrootVue.addNotify(errMsg, 'negative');
+    } else {
+        if (moqui.webrootVue && moqui.webrootVue.getCsrfToken) {
+            // update the moqui session token if it has changed
+            moqui.webrootVue.getCsrfToken(jqXHR);
+        }
+        if (!notified) {
+            var errMsg = 'Error: ' + errorThrown + ' (' + textStatus + ')';
+            moqui.webrootVue.$q.notify($.extend({}, moqui.notifyOptsError, { message:errMsg }));
+            moqui.webrootVue.addNotify(errMsg, 'negative');
+        }
     }
 };
 /* Override moqui.notifyGrowl */
 moqui.notifyGrowl = function(jsonObj) {
     if (!jsonObj) return;
-    // TODO: jsonObj.link, jsonObj.icon
-    moqui.webrootVue.$q.notify($.extend({}, moqui.notifyOptsInfo, { type:jsonObj.type, message:jsonObj.title }));
-    moqui.webrootVue.addNotify(jsonObj.title, jsonObj.type);
+    // TODO: jsonObj.icon
+    moqui.webrootVue.$q.notify($.extend({}, moqui.notifyOptsInfo, { type:jsonObj.type, message:jsonObj.title,
+        actions: [
+            { label: 'View', color: 'white', handler: function () { moqui.webrootVue.setUrl(jsonObj.link); } }
+        ]
+    }));
+    moqui.webrootVue.addNotify(jsonObj.title, jsonObj.type, jsonObj.link, jsonObj.icon);
 };
 
 /* ========== component loading methods ========== */
@@ -697,7 +711,11 @@ Vue.component('m-form', {
                 setTimeout(function() { $btn.prop('disabled', false); }, 3000);
             }
             var formData = Object.keys(this.fields).length ? new FormData() : new FormData(this.$refs.qForm.$el);
-            $.each(this.fields, function(key, value) { formData.set(key, value || ""); });
+            $.each(this.fields, function(key, value) {
+                if (moqui.isArray(value)) {
+                    value.forEach(function(v) {formData.append(key, v);});
+                } else { formData.set(key, value || ""); }
+            });
 
             var fieldsToRemove = [];
             // NOTE: using iterator directly to avoid using 'for of' which requires more recent ES version (for minify, browser compatibility)
@@ -807,7 +825,7 @@ Vue.component('m-form', {
                 if (resp.screenUrl && resp.screenUrl.length > 0) { this.$root.setUrl(resp.screenUrl); }
                 else if (resp.redirectUrl && resp.redirectUrl.length > 0) { window.location.href = resp.redirectUrl; }
             } else { console.warn('m-form no response or non-JSON response: ' + JSON.stringify(resp)) }
-            var hideId = this.submitHideId; if (hideId && hideId.length > 0) { $('#' + hideId).modal('hide'); }
+            var hideId = this.submitHideId; if (hideId && hideId.length > 0) { this.$root.hideContainer(hideId); }
             var reloadId = this.submitReloadId; if (reloadId && reloadId.length > 0) { this.$root.reloadContainer(reloadId); }
             var subMsg = this.submitMessage;
             if (subMsg && subMsg.length) {
@@ -918,7 +936,9 @@ Vue.component('m-form-link', {
                 // NOTE: with q-input mask place holder is underscore, look for 2; this will cause issues if a valid user input starts with 2 underscores, may need better approach here and in m-form
                 // console.warn("m-form-link submit fields key " + key + " value " + value + " is mask placeholder " + (moqui.isString(value) && value.startsWith("__")));
                 if (moqui.isString(value) && value.startsWith("__")) return;
-                formData.set(key, value);
+                if (moqui.isArray(value)) {
+                    value.forEach(function(v) {formData.append(key, v);});
+                } else { formData.set(key, value); }
             } });
 
             var extraList = [];
@@ -989,7 +1009,7 @@ Vue.component('m-form-paginate', {
     name: "mFormPaginate",
     props: { paginate:Object, formList:Object },
     template:
-    '<div v-if="paginate" class="q-pagination row no-wrap items-center">' +
+    '<div v-if="paginate &amp;&amp; paginate.count > 1" class="q-pagination row no-wrap items-center">' +
         '<template v-if="paginate.pageIndex > 0">' +
             '<q-btn dense flat no-caps @click.prevent="setIndex(0)" icon="skip_previous"></q-btn>' +
             '<q-btn dense flat no-caps @click.prevent="setIndex(paginate.pageIndex-1)" icon="fast_rewind"></q-btn></template>' +
@@ -1508,6 +1528,7 @@ Vue.component('m-drop-down', {
                 // doesn't work, q-form submit() doesn't like this event for whatever reason, method missing on it: vm.$nextTick(function() { console.log("calling parent submit with event"); console.log(vm.$parent); vm.$parent.submit($event); });
 
                 // TODO: find a better approach, perhaps pass down a reference to m-form or something so can refer to it more explicitly and handle Vue components in between
+                // TODO: if found a better approach change the removeValue method below
                 // this assumes the grandparent is m-form, if not it will blow up... alternatives are tricky
                 vm.$nextTick(function() { vm.$parent.$parent.submitForm(); });
             }
@@ -1692,6 +1713,18 @@ Vue.component('m-drop-down', {
                 if (valueEntry !== value) newValueArr.push(valueEntry);
             }
             if (curValueArr.length !== newValueArr.length) this.$emit('input', newValueArr);
+            // copied from handleInput method above
+            if (this.submitOnSelect) {
+                var vm = this;
+                // this doesn't work, even alternative of custom-event with event handler in DefaultScreenMacros.qvt.ftl in the drop-down macro that explicitly calls the q-form submit() method: vm.$nextTick(function() { console.log("emitting submit"); vm.$emit('submit'); });
+                // doesn't work, q-form submit() method blows up without an even, in spite of what docs say: vm.$nextTick(function() { console.log("calling parent submit"); console.log(vm.$parent); vm.$parent.submit(); });
+                // doesn't work, q-form submit() doesn't like this event for whatever reason, method missing on it: vm.$nextTick(function() { console.log("calling parent submit with event"); console.log(vm.$parent); vm.$parent.submit($event); });
+
+                // TODO: find a better approach, perhaps pass down a reference to m-form or something so can refer to it more explicitly and handle Vue components in between
+                // TODO: if found a better approach change the handleInput method above
+                // this assumes the grandparent is m-form, if not it will blow up... alternatives are tricky
+                vm.$nextTick(function() { vm.$parent.$parent.submitForm(); });
+            }
         },
         clearAll: function() { this.$emit('input', null); }
     },
@@ -1823,9 +1856,38 @@ Vue.component('m-chart', {
     mounted: function() {
         var vm = this;
         moqui.loadScript('https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js', function(err) {
-            if (err) return;
+            if (err) {
+                console.error("Error loading m-chart script: " + err);
+                return;
+            }
             vm.instance = new Chart(vm.$refs.canvas, vm.config);
         }, function() { return !!window.Chart; });
+    },
+    watch: {
+        config: function (val) {
+            if (this.instance) {
+                // console.info("updating m-chart")
+                if (val.type) this.instance.type = val.type;
+                if (val.labels) this.instance.labels = val.labels;
+                if (val.data) this.instance.data = val.data;
+                if (val.options) this.instance.options = val.options;
+                this.instance.update();
+            }
+        }
+    }
+});
+/* Lazy loading Mermaid JS wrapper component; for config options see https://mermaid.js.org/config/usage.html */
+Vue.component('m-mermaid', {
+    name: 'mMermaid',
+    props: { config:{type:Object,'default': function() { return {startOnLoad:true,securityLevel:'loose'} }},
+        height:{type:String,'default':'400px'}, width:{type:String,'default':'100%'} },
+    template: '<pre ref="mermaid" class="mermaid" :style="{height:height,width:width}"><slot></slot></pre>',
+    mounted: function() {
+        var vm = this;
+        moqui.loadScript('https://cdnjs.cloudflare.com/ajax/libs/mermaid/9.3.0/mermaid.min.js', function(err) {
+            if (err) return;
+            mermaid.init(vm.config, vm.$refs.mermaid);
+        }, function() { return !!window.mermaid; });
     }
 });
 /* Lazy loading CK Editor wrapper component, based on https://github.com/ckeditor/ckeditor4-vue */
@@ -2058,8 +2120,9 @@ moqui.webrootVue = new Vue({
     data: { basePath:"", linkBasePath:"", currentPathList:[], extraPathList:[], currentParameters:{}, bodyParameters:null,
         activeSubscreens:[], navMenuList:[], navHistoryList:[], navPlugins:[], accountPlugins:[], notifyHistoryList:[],
         lastNavTime:Date.now(), loading:0, currentLoadRequest:null, activeContainers:{}, urlListeners:[],
-        moquiSessionToken:"", appHost:"", appRootPath:"", userId:"", locale:"en",
-        notificationClient:null, qzVue:null, leftOpen:false, moqui:moqui },
+        moquiSessionToken:"", appHost:"", appRootPath:"", userId:"", username:"", locale:"en",
+        reLoginShow:false, reLoginPassword:null, reLoginMfaData:null, reLoginOtp:null,
+        notificationClient:null, sessionTokenBc:null, qzVue:null, leftOpen:false, moqui:moqui },
     methods: {
         setUrl: function(url, bodyParameters, onComplete) {
             // cancel current load if needed
@@ -2128,7 +2191,14 @@ moqui.webrootVue = new Vue({
                 hash:'', query:this.currentParameters, params:this.bodyParameters||{}, fullPath:this.currentLinkUrl, matched:[] };
         },
         setParameters: function(parmObj) {
-            if (parmObj) { this.$root.currentParameters = $.extend({}, this.$root.currentParameters, parmObj); }
+            if (parmObj) {
+                this.$root.currentParameters = $.extend({}, this.$root.currentParameters, parmObj);
+                // no path change so just need to update parameters on most recent history item
+                var curUrl = this.currentLinkUrl;
+                var curHistoryItem = this.navHistoryList[0];
+                curHistoryItem.pathWithParams = curUrl;
+                window.history.pushState(null, curHistoryItem.title || '', curUrl);
+            }
             this.$root.reloadSubscreens();
         },
         addSubscreen: function(saComp) {
@@ -2171,6 +2241,9 @@ moqui.webrootVue = new Vue({
             if (contComp) { contComp.reload(); } else { console.error("Container with ID " + contId + " not found, not reloading"); }},
         loadContainer: function(contId, url) { var contComp = this.activeContainers[contId];
             if (contComp) { contComp.load(url); } else { console.error("Container with ID " + contId + " not found, not loading url " + url); }},
+        hideContainer: function(contId) {
+            var contComp = this.activeContainers[contId];
+            if (contComp) { contComp.hide(); } else { console.error("Container with ID " + contId + " not found, not hidding"); }},
 
         addNavPlugin: function(url) { var vm = this; moqui.loadComponent(this.appRootPath + url, function(comp) { vm.navPlugins.push(comp); }) },
         addNavPluginsWait: function(urlList, urlIndex) { if (urlList && urlList.length > urlIndex) {
@@ -2189,13 +2262,13 @@ moqui.webrootVue = new Vue({
             this.urlListeners.push(urlListenerFunction);
         },
 
-        addNotify: function(message, type) {
+        addNotify: function(message, type, link, icon) {
             var histList = this.notifyHistoryList.slice(0);
             var nowDate = new Date();
             var nh = nowDate.getHours(); if (nh < 10) nh = '0' + nh;
             var nm = nowDate.getMinutes(); if (nm < 10) nm = '0' + nm;
             // var ns = nowDate.getSeconds(); if (ns < 10) ns = '0' + ns;
-            histList.unshift({message:message, type:type, time:(nh + ':' + nm)}); //  + ':' + ns
+            histList.unshift({message:message, type:type, time:(nh + ':' + nm), link:link, icon:icon}); //  + ':' + ns
             while (histList.length > 25) { histList.pop(); }
             this.notifyHistoryList = histList;
         },
@@ -2227,12 +2300,124 @@ moqui.webrootVue = new Vue({
             if (this.appRootPath && this.appRootPath.length && path.indexOf(this.appRootPath) !== 0) path = this.appRootPath + path;
             var pathList = path.split('/');
             // element 0 in array after split is empty string from leading '/'
-            var wrapperIdx = this.appRootPath.split('/').length; // appRootPath is '/moqui/v1' or '/moqui'. wrapper means 'qapps'
+            var wrapperIdx = this.appRootPath.split('/').length;
+            // appRootPath is '/moqui/v1' or '/moqui'. wrapper means 'qapps'
             pathList[wrapperIdx] = this.linkBasePath.split('/').slice(-1);
             path = pathList.join("/");
             return path;
         },
-        getQuasarColor: function(bootstrapColor) { return moqui.getQuasarColor(bootstrapColor); }
+        getQuasarColor: function(bootstrapColor) { return moqui.getQuasarColor(bootstrapColor); },
+        // Re-Login Functions
+        getCsrfToken: function(jqXHR) {
+            // update the session token, new session after login (along with xhrFields:{withCredentials:true} for cookie)
+            var sessionToken = jqXHR.getResponseHeader("X-CSRF-Token");
+            if (sessionToken && sessionToken.length && sessionToken !== this.moquiSessionToken) {
+                console.log("Updating session token from jqXHR, sending to BroadcastChannel")
+                this.moquiSessionToken = sessionToken;
+                this.sessionTokenBc.postMessage(sessionToken);
+            }
+        },
+        receiveBcCsrfToken: function(event) {
+            var sessionToken = event.data;
+            if (sessionToken && sessionToken.length && this.moquiSessionToken !== sessionToken) {
+                console.log("Updating session token from BroadcastChannel")
+                this.moquiSessionToken = sessionToken;
+            }
+        },
+        reLoginCheckShow: function() {
+            this.reLoginShowDialog();
+            /* NOTE DEJ-2022-12 removing use of the userInfo endpoint which is commented out for security reasons:
+            // before showing the Re-Login dialog do a GET request without session token to see if there is a new one
+            $.ajax({ type:'GET', url:(this.appRootPath + '/rest/userInfo'),
+                error:this.reLoginCheckResponseError, success:this.reLoginCheckResponseSuccess,
+                dataType:'json', headers:{Accept:'application/json'}, xhrFields:{withCredentials:true} });
+
+             */
+        },
+        /* NOTE DEJ-2022-12 removing use of the userInfo endpoint which is commented out for security reasons:
+        reLoginCheckResponseSuccess: function(resp, status, jqXHR) {
+            if (resp.username && resp.sessionToken) {
+                this.moquiSessionToken = resp.sessionToken;
+                // show success notification, add to notify history
+                var msg = 'Session refreshed after login in another tab, no changes made, please try again';
+                // show for 12 seconds because we want it to show longer than the no user authenticated notification which shows for 15 seconds (minus some password typing time)
+                this.$q.notify({ timeout:10000, type:'warning', message:msg });
+                this.addNotify(msg, 'warning');
+            } else {
+                this.reLoginShowDialog();
+            }
+        },
+        reLoginCheckResponseError: function(jqXHR, textStatus, errorThrown, responseText) {
+            if (jqXHR.status === 401) {
+                this.reLoginShowDialog();
+            } else {
+                var resp = responseText ? responseText : jqXHR.responseText;
+                var respObj;
+                try { respObj = JSON.parse(resp); } catch (e) { } // ignore error, don't always expect it to be JSON
+                if (respObj && moqui.isPlainObject(respObj)) {
+                    moqui.notifyMessages(respObj.messageInfos, respObj.errors, respObj.validationErrors);
+                } else if (resp && moqui.isString(resp) && resp.length) {
+                    moqui.notifyMessages(resp);
+                }
+            }
+        },
+        */
+        reLoginShowDialog: function() {
+            // make sure there is no MFA Data (would skip the login with password step)
+            this.reLoginMfaData = null;
+            this.reLoginOtp = null;
+            this.reLoginShow = true;
+        },
+        reLoginPostLogin: function() {
+            // clear password/etc, hide relogin dialog
+            this.reLoginShow = false;
+            this.reLoginPassword = null;
+            this.reLoginOtp = null;
+            this.reLoginMfaData = null;
+            // show success notification, add to notify history
+            var msg = 'Background login successful';
+            // show for 12 seconds because we want it to show longer than the no user authenticated notification which shows for 15 seconds (minus some password typing time)
+            this.$q.notify({ timeout:12000, type:'positive', message:msg });
+            this.addNotify(msg, 'positive');
+        },
+        reLoginSubmit: function() {
+            $.ajax({ type:'POST', url:(this.appRootPath + '/rest/login'), error:moqui.handleAjaxError, success:this.reLoginHandleResponse,
+                dataType:'json', headers:{Accept:'application/json'}, xhrFields:{withCredentials:true},
+                data:{ username:this.username, password:this.reLoginPassword } });
+        },
+        reLoginHandleResponse: function(resp, status, jqXHR) {
+            // console.warn("re-login response: " + JSON.stringify(resp));
+            this.getCsrfToken(jqXHR);
+            if (resp.secondFactorRequired) {
+                this.reLoginMfaData = resp;
+            } else if (resp.loggedIn) {
+                this.reLoginPostLogin();
+            }
+        },
+        reLoginReload: function () {
+            if (confirm("Reload page? All changes will be lost."))
+                window.location.href = this.currentLinkUrl;
+        },
+        reLoginSendOtp: function(factorId) {
+            $.ajax({ type:'POST', url:(this.appRootPath + '/rest/sendOtp'), error:moqui.handleAjaxError, success:this.reLoginSendOtpResponse,
+                dataType:'json', headers:{Accept:'application/json'}, xhrFields:{withCredentials:true},
+                data:{ moquiSessionToken:this.moquiSessionToken, factorId:factorId } });
+        },
+        reLoginSendOtpResponse: function(resp, status, jqXHR) {
+            // console.warn("re-login send otp response: " + JSON.stringify(resp));
+            if (resp) moqui.notifyMessages(resp.messages, resp.errors, resp.validationErrors);
+        },
+        reLoginVerifyOtp: function() {
+            $.ajax({ type:'POST', url:(this.appRootPath + '/rest/verifyOtp'), error:moqui.handleAjaxError, success:this.reLoginVerifyOtpResponse,
+                dataType:'json', headers:{Accept:'application/json'}, xhrFields:{withCredentials:true},
+                data:{ moquiSessionToken:this.moquiSessionToken, code:this.reLoginOtp } });
+        },
+        reLoginVerifyOtpResponse: function(resp, status, jqXHR) {
+            this.getCsrfToken(jqXHR);
+            if (resp.loggedIn) {
+                this.reLoginPostLogin();
+            }
+        }
     },
     watch: {
         navMenuList: function(newList) { if (newList.length > 0) {
@@ -2250,7 +2435,8 @@ moqui.webrootVue = new Vue({
 
             // update history and document.title
             var newTitle = (par ? par.title + ' - ' : '') + cur.title;
-            var curUrl = cur.pathWithParams; var questIdx = curUrl.indexOf("?");
+            var curUrl = cur.pathWithParams;
+            var questIdx = curUrl.indexOf("?");
             if (questIdx > 0) {
                 var excludeKeys = ["pageIndex", "orderBySelect", "orderByField", "moquiSessionToken"];
                 var parmList = curUrl.substring(questIdx+1).split("&");
@@ -2267,7 +2453,7 @@ moqui.webrootVue = new Vue({
                     if (eqIdx > 0) {
                         var key = parm.substring(0, eqIdx);
                         var value = parm.substring(eqIdx + 1);
-                        if (key.indexOf("_op") > 0 || key.indexOf("_not") > 0 || key.indexOf("_ic") > 0 || excludeKeys.indexOf(key) > 0 || key === value) continue;
+                        if (key.indexOf("_op") > 0 || key.indexOf("_not") > 0 || key.indexOf("_ic") > 0 || excludeKeys.indexOf(key) >= 0 || key === value) continue;
                         if (titleParms.length > 0) titleParms += ", ";
                         titleParms += decodeURIComponent(value);
                         dpCount++;
@@ -2313,7 +2499,7 @@ moqui.webrootVue = new Vue({
             get: function() { return moqui.objToSearch(this.currentParameters); },
             set: function(newSearch) { this.currentParameters = moqui.searchToObj(newSearch); }
         },
-        currentLinkUrl: function() { var srch = this.currentSearch; return this.currentLinkPath + (srch.length > 0 ? '?' + srch : ''); },
+        currentLinkUrl: function() { var search = this.currentSearch; return this.currentLinkPath + (search.length > 0 ? '?' + search : ''); },
         basePathSize: function() { return this.basePath.split('/').length - this.appRootPath.split('/').length; },
         ScreenTitle: function() { return this.navMenuList.length > 0 ? this.navMenuList[this.navMenuList.length - 1].title : ""; },
         documentMenuList: function() {
@@ -2330,6 +2516,7 @@ moqui.webrootVue = new Vue({
         this.appHost = $("#confAppHost").val(); this.appRootPath = $("#confAppRootPath").val();
         this.basePath = $("#confBasePath").val(); this.linkBasePath = $("#confLinkBasePath").val();
         this.userId = $("#confUserId").val();
+        this.username = $("#confUsername").val();
         this.locale = $("#confLocale").val(); if (moqui.localeMap[this.locale]) this.locale = moqui.localeMap[this.locale];
         this.leftOpen = $("#confLeftOpen").val() === 'true';
 
@@ -2337,6 +2524,9 @@ moqui.webrootVue = new Vue({
         this.$q.dark.set(confDarkMode === "true");
 
         this.notificationClient = new moqui.NotificationClient((location.protocol === 'https:' ? 'wss://' : 'ws://') + this.appHost + this.appRootPath + "/notws");
+        // open BroadcastChannel to share session token between tabs/windows on the same domain (see https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API)
+        this.sessionTokenBc = new BroadcastChannel("SessionToken");
+        this.sessionTokenBc.onmessage = this.receiveBcCsrfToken;
 
         var navPluginUrlList = [];
         $('.confNavPluginUrl').each(function(idx, el) { navPluginUrlList.push($(el).val()); });
@@ -2364,6 +2554,9 @@ moqui.webrootVue = new Vue({
                 }
             });
         }
+    },
+    beforeDestroy: function() {
+        this.sessionTokenBc.close();
     }
 
 });
