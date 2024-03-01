@@ -857,7 +857,7 @@ ${sri.renderIncludeScreen(.node["@location"], .node["@share-scope"]!)}
                     </#if>
                     <#if currentFindUrlParms?has_content>
                         <#if activeFormListFind?has_content><hr></#if>
-                        <p>${curFindSummary!""}</p>
+                        <p v-pre>${curFindSummary!""}</p>
 
                         <m-form class="form-inline" id="${formId}_NewFind" action="${formSaveFindUrl}" v-slot:default="formProps"
                                 :fields-initial="{formLocation:'${formListInfo.getSavedFindFullLocation()}',_findDescription:'',<#rt>
@@ -1060,7 +1060,7 @@ ${sri.renderIncludeScreen(.node["@location"], .node["@share-scope"]!)}
 
         <#if isHeaderDialog>
         <tr><th colspan="${numColumns}" style="font-weight: normal">
-            ${curFindSummary!""}
+            <span v-pre>${curFindSummary!""}</span>
             <#if haveFilters>
                 <#assign hiddenParameterMap = sri.getFormHiddenParameters(formNode)>
                 <#assign hiddenParameterKeys = hiddenParameterMap.keySet()>
@@ -1346,7 +1346,7 @@ ${sri.renderIncludeScreen(.node["@location"], .node["@share-scope"]!)}
         <#if isRowSelection>
             <div class="td">
             <#if listEntry[checkboxIdField]?has_content>
-                <div class="q-my-auto"><q-checkbox size="xs" v-model="formProps.checkboxStates[${listEntry_index?c}]"></q-checkbox></div></#if>
+                <div class="q-my-auto"><input style="transform: scale(1.3);-ms-transform: scale(1.3);-webkit-transform: scale(1.3);" type="checkbox" v-model="formProps.checkboxStates[${listEntry_index?c}]" @click="formProps.clickCheckbox($event, ${listEntry_index?c})"></div></#if>
             </div>
         </#if>
         <#if !(isMulti || skipForm)>
