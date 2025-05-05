@@ -1354,10 +1354,10 @@ Vue.component('m-date-period', {
     template:
     '<div v-if="fromThruMode" class="row">' +
         '<m-date-time :name="name+\'_from\'" :id="id+\'_from\'" :label="label+\' From\'" :form="form" :type="fromThruType"' +
-            ' v-model="fields[name+\'_from\']" :bg-color="fieldChanged(name+\'_from\')?\'blue-1\':\'\'"></m-date-time>' +
+            ' v-model="fields[name+\'_from\']" :bg-color="fieldChanged(name+\'_from\')?($q.dark.isActive?\'blue-10\':\'blue-1\'):\'\'"></m-date-time>' +
         '<q-icon class="q-my-auto" name="remove"></q-icon>' +
         '<m-date-time :name="name+\'_thru\'" :id="id+\'_thru\'" :label="label+\' Thru\'" :form="form" :type="fromThruType"' +
-            ' v-model="fields[name+\'_thru\']" :bg-color="fieldChanged(name+\'_thru\')?\'blue-1\':\'\'">' +
+            ' v-model="fields[name+\'_thru\']" :bg-color="fieldChanged(name+\'_thru\')?($q.dark.isActive?\'blue-10\':\'blue-1\'):\'\'">' +
             '<template v-slot:after>' +
                 '<q-btn dense flat icon="calendar_view_day" @click="toggleMode"><q-tooltip>Period Select Mode</q-tooltip></q-btn>' +
                 '<q-btn dense flat icon="clear" @click="clearAll"><q-tooltip>Clear</q-tooltip></q-btn>' +
@@ -1366,14 +1366,14 @@ Vue.component('m-date-period', {
     '</div>' +
     '<div v-else class="row"><q-input dense outlined stack-label :label="label" v-model="fields[name+\'_pdate\']"' +
             ' mask="####-##-##" fill-mask :id="id" :name="name+\'_pdate\'" :form="form" style="max-width:max-content;"' +
-            ' :bg-color="fieldChanged(name+\'_pdate\')?\'blue-1\':\'\'">' +
+            ' :bg-color="fieldChanged(name+\'_pdate\')?($q.dark.isActive?\'blue-10\':\'blue-1\'):\'\'">' +
         '<q-tooltip v-if="tooltip">{{tooltip}}</q-tooltip>' +
         '<template v-slot:before>' +
             '<q-select class="q-pr-xs" dense outlined options-dense emit-value map-options v-model="fields[name+\'_poffset\']"' +
-                ' :name="name+\'_poffset\'" :bg-color="fieldChanged(name+\'_poffset\')?\'blue-1\':\'\'"' +
+                ' :name="name+\'_poffset\'" :bg-color="fieldChanged(name+\'_poffset\')?($q.dark.isActive?\'blue-10\':\'blue-1\'):\'\'"' +
                 ' stack-label label="Offset" :options="dateOffsets" :form="form" behavior="menu"></q-select>' +
             '<q-select dense outlined options-dense emit-value map-options v-model="fields[name+\'_period\']"' +
-                ' :name="name+\'_period\'" :bg-color="fieldChanged(name+\'_period\')?\'blue-1\':\'\'"' +
+                ' :name="name+\'_period\'" :bg-color="fieldChanged(name+\'_period\')?($q.dark.isActive?\'blue-10\':\'blue-1\'):\'\'"' +
                 ' stack-label label="Period" :options="datePeriods" :form="form" behavior="menu"></q-select>' +
         '</template>' +
         '<template v-slot:prepend>' +
@@ -2145,7 +2145,7 @@ moqui.webrootVue = new Vue({
         reLoginShow:false, reLoginPassword:null, reLoginMfaData:null, reLoginOtp:null,
         notificationClient:null, sessionTokenBc:null, qzVue:null, leftOpen:false, moqui:moqui },
     methods: {
-        setUrl: function(url, bodyParameters, onComplete) {
+        setUrl: function(url, bodyParameters, onComplete, pushState=true) {
             // cancel current load if needed
             if (this.currentLoadRequest) {
                 console.log("Aborting current page load currentLinkUrl " + this.currentLinkUrl + " url " + url);
@@ -2192,8 +2192,10 @@ moqui.webrootVue = new Vue({
                     }
                 }});
 
-                // set the window URL
-                window.history.pushState(null, this.ScreenTitle, url);
+                if (pushState) {
+                    // set the window URL
+                    window.history.pushState(null, this.ScreenTitle, url);
+                }
                 // notify url listeners
                 this.urlListeners.forEach(function(callback) { callback(url, this) }, this);
                 // scroll to top
@@ -2589,7 +2591,7 @@ moqui.webrootVue = new Vue({
     }
 
 });
-window.addEventListener('popstate', function() { moqui.webrootVue.setUrl(window.location.pathname + window.location.search); });
+window.addEventListener('popstate', function() { moqui.webrootVue.setUrl(window.location.pathname + window.location.search, null, null, false); });
 
 // NOTE: simulate vue-router so this.$router.resolve() works in a basic form; required for use of q-btn 'to' attribute along with router-link component defined above
 moqui.webrootRouter = {
