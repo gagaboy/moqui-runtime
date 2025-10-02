@@ -6,6 +6,38 @@
 <moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-3.xsd">
 
     <default-property name="instance_purpose" value="dev"/>
+    <!-- Locale and Time Zone Properties -->
+    <default-property name="default_locale" value="zh"/>
+    <default-property name="default_time_zone" value="Asia/Shanghai"/>
+    <default-property name="database_time_zone" value="Asia/Shanghai"/>
+
+    <default-property name="webapp_http_host" value="127.0.0.1"/>
+    <default-property name="webapp_http_port" value="888"/>
+
+    <!-- mysql 配置 -->
+    <!-- <default-property name="entity_ds_db_conf" value="mysql"/>
+    <default-property name="entity_ds_schema" value=""/>
+    <default-property name="entity_ds_host" value="localhost"/>
+    <default-property name="entity_ds_port" value="3306"/>
+    <default-property name="entity_ds_database" value="moqui"/>
+    <default-property name="entity_ds_url" value="jdbc:mysql://${entity_ds_host}:${entity_ds_port}/${entity_ds_database}"/>
+    <default-property name="entity_ds_user" value="root"/>
+    <default-property name="entity_ds_password" value="20022402"/>
+    <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
+    <default-property name="webapp_allow_origins" value="*"/>
+    <default-property name="entity_empty_db_load" value="all"/>
+    <default-property name="entity_lock_track" value="true"/> -->
+
+    <!-- postgres 配置 -->
+    <default-property name="entity_ds_db_conf" value="postgres"/>
+    <default-property name="entity_ds_schema" value="moqui"/>
+    <default-property name="entity_ds_host" value="localhost"/>
+    <default-property name="entity_ds_port" value="5432"/>
+    <default-property name="entity_ds_database" value="moqui"/>
+    <default-property name="entity_ds_url" value="jdbc:postgres://${entity_ds_host}:${entity_ds_port}/${entity_ds_database}"/>
+    <default-property name="entity_ds_user" value="moqui"/>
+    <default-property name="entity_ds_password" value="20022402"/>
+    <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
     <default-property name="webapp_allow_origins" value="*"/>
     <default-property name="entity_empty_db_load" value="all"/>
     <default-property name="entity_lock_track" value="true"/>

@@ -108,6 +108,8 @@ String getTargetPath(String sourcePath, String targetPath) {
     return targetPath
 }
 task downloadFiles { doLast {
+    // 修正 https 下载文件的bug
+    System.setProperty("https.protocols", "TLSv1,TLSv1.1,TLSv1.2")
     for (Map.Entry fileEntry in fileMap.entrySet()) {
         String sourcePath = fileEntry.key
         String targetPath = getTargetPath(sourcePath, (String) fileEntry.value)
